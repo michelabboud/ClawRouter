@@ -2676,12 +2676,27 @@ async function proxyRequest(
       // Filter to models that support tool calling when request has tools.
       // Prevents models like grok-code-fast-1 from outputting tool invocations
       // as plain text JSON (the "talking to itself" bug).
-      const toolFiltered = filterByToolCalling(contextFiltered, hasTools, supportsToolCalling);
+      let toolFiltered = filterByToolCalling(contextFiltered, hasTools, supportsToolCalling);
       const toolExcluded = contextFiltered.filter((m) => !toolFiltered.includes(m));
       if (toolExcluded.length > 0) {
         console.log(
           `[ClawRouter] Tool-calling filter: excluded ${toolExcluded.join(", ")} (no structured function call support)`,
         );
+      }
+
+      // Filter out models that declare toolCalling but fail tool compliance in practice.
+      // gemini-2.5-flash-lite refuses certain tool schemas (e.g. brave search) while
+      // cheaper models like nvidia/gpt-oss-120b handle them fine.
+      const TOOL_NONCOMPLIANT_MODELS = ["google/gemini-2.5-flash-lite"];
+      if (hasTools && toolFiltered.length > 1) {
+        const compliant = toolFiltered.filter((m) => !TOOL_NONCOMPLIANT_MODELS.includes(m));
+        if (compliant.length > 0 && compliant.length < toolFiltered.length) {
+          const dropped = toolFiltered.filter((m) => TOOL_NONCOMPLIANT_MODELS.includes(m));
+          console.log(
+            `[ClawRouter] Tool-compliance filter: excluded ${dropped.join(", ")} (unreliable tool schema handling)`,
+          );
+          toolFiltered = compliant;
+        }
       }
 
       // Filter to models that support vision when request has image_url content
