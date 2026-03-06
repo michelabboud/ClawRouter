@@ -54,7 +54,7 @@ import {
   supportsVision,
 } from "./models.js";
 import { logUsage, type UsageEntry } from "./logger.js";
-import { getStats } from "./stats.js";
+import { getStats, clearStats } from "./stats.js";
 import { RequestDeduplicator } from "./dedup.js";
 import { ResponseCache, type ResponseCacheConfig } from "./response-cache.js";
 import { BalanceMonitor } from "./balance.js";
@@ -1326,6 +1326,23 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
         "Cache-Control": "no-cache",
       });
       res.end(JSON.stringify(stats, null, 2));
+      return;
+    }
+
+    // Stats clear endpoint - delete all log files
+    if (req.url === "/stats" && req.method === "DELETE") {
+      try {
+        const result = await clearStats();
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ cleared: true, deletedFiles: result.deletedFiles }));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({
+            error: `Failed to clear stats: ${err instanceof Error ? err.message : String(err)}`,
+          }),
+        );
+      }
       return;
     }
 

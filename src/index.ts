@@ -67,7 +67,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { VERSION } from "./version.js";
 import { privateKeyToAccount } from "viem/accounts";
-import { getStats, formatStatsAscii } from "./stats.js";
+import { getStats, formatStatsAscii, clearStats } from "./stats.js";
 import { buildPartnerTools, PARTNER_SERVICES } from "./partners/index.js";
 
 /**
@@ -510,6 +510,21 @@ async function createStatsCommand(): Promise<OpenClawPluginCommandDefinition> {
     requireAuth: false,
     handler: async (ctx: PluginCommandContext) => {
       const arg = ctx.args?.trim().toLowerCase() || "7";
+
+      if (arg === "clear" || arg === "reset") {
+        try {
+          const { deletedFiles } = await clearStats();
+          return {
+            text: `Stats cleared — ${deletedFiles} log file(s) deleted. Fresh start!`,
+          };
+        } catch (err) {
+          return {
+            text: `Failed to clear stats: ${err instanceof Error ? err.message : String(err)}`,
+            isError: true,
+          };
+        }
+      }
+
       const days = parseInt(arg, 10) || 7;
 
       try {
@@ -1144,7 +1159,7 @@ export {
 } from "./errors.js";
 export { fetchWithRetry, isRetryable, DEFAULT_RETRY_CONFIG } from "./retry.js";
 export type { RetryConfig } from "./retry.js";
-export { getStats, formatStatsAscii } from "./stats.js";
+export { getStats, formatStatsAscii, clearStats } from "./stats.js";
 export type { DailyStats, AggregatedStats } from "./stats.js";
 export {
   SessionStore,
